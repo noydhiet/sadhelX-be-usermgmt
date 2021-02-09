@@ -54,7 +54,7 @@ func (r *repo) Login(ctx context.Context, email string, password string) (map[st
 	}
 
 	accessToken, err := r.authRepo.GenerateAccessToken(user)
-	level.Debug(r.logger).Log("msg", accessToken)
+	// level.Debug(r.logger).Log("msg", accessToken)
 	if err != nil {
 		level.Error(r.logger).Log("msg", "unable to generate access token", "err", err)
 		return nil, err
