@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	_ "expvar"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"aph-go-service-master/transport"
+	"shadelx-be-usermgmt/service/auth"
+	"shadelx-be-usermgmt/service/auth/repository"
+	"shadelx-be-usermgmt/util"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 
 	_ "github.com/lib/pq"
 )
@@ -25,23 +32,80 @@ const (
 )
 
 func main() {
-
-	initDb()
-	defer db.Close()
-
-	logger := log.NewLogfmtLogger(os.Stdout)
-
-	transport.RegisterHttpsServicesAndStartListener()
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8088"
 	}
 
-	logger.Log("listening-on", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		logger.Log("listen.error", err)
+	var httpAddr = flag.String("http", ":"+port, "http listen address")
+	var logger log.Logger
+	{
+		logger = log.NewLogfmtLogger(os.Stdout)
+		logger = log.NewSyncLogger(logger)
+		logger = log.With(logger,
+			"service", "usermgmt",
+			"time", log.DefaultTimestampUTC,
+			"caller", log.DefaultCaller,
+		)
 	}
+	level.Info(logger).Log("msg", "service started")
+	defer level.Info(logger).Log("msg", "service ended")
+
+	initDb()
+	defer db.Close()
+
+	configs := util.NewConfigurations(logger)
+
+	// logger := log.NewLogfmtLogger(os.Stdout)
+
+	flag.Parse()
+	ctx := context.Background()
+
+	var srv auth.Service
+	{
+		dbRepo := repository.NewPostgresRepository(
+			db,
+			logger,
+		)
+		authRepo := repository.NewAuthRepo(
+			configs,
+			logger,
+		)
+		repository := repository.NewRepo(
+			*dbRepo,
+			*authRepo,
+			logger,
+		)
+		srv = auth.NewService(
+			repository,
+			logger,
+		)
+	}
+
+	endpoints := auth.MakeAuthEndpoints(srv)
+
+	errChan := make(chan error)
+
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		errChan <- fmt.Errorf("%s", <-c)
+	}()
+
+	go func() {
+		level.Info(logger).Log("listening-on", port)
+		handler := auth.NewHTTPServer(ctx, endpoints)
+		errChan <- http.ListenAndServe(*httpAddr, handler)
+
+	}()
+
+	level.Error(logger).Log("exit", <-errChan)
+	// transport.RegisterHttpsServicesAndStartListener()
+
+	// logger.Log("listening-on", port)
+	// if err := http.ListenAndServe(":"+port, nil); err != nil {
+	// 	logger.Log("listen.error", err)
+	// }
 }
 
 func initDb() {
