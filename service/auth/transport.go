@@ -10,22 +10,40 @@ import (
 
 // NewHTTPServer ...
 func NewHTTPServer(ctx context.Context, endpoints Endpoints) http.Handler {
-	r := mux.NewRouter()
-	r.Use(JSONHeader)
+	baseR := mux.NewRouter()
 
-	r.Methods("POST").Path("/signup").Handler(httptransport.NewServer(
+	baseR.Methods(http.MethodPost).Path("/signup").Handler(httptransport.NewServer(
 		endpoints.Signup,
 		decodeSignupRequest,
 		encodeResponse,
 	))
 
-	r.Methods("POST").Path("/login").Handler(httptransport.NewServer(
+	baseR.Methods(http.MethodPost).Path("/login").Handler(httptransport.NewServer(
 		endpoints.Login,
 		decodeLoginRequest,
 		encodeResponse,
 	))
 
-	return r
+	baseR.Methods(http.MethodPost).Path("/refresh-token").Handler(httptransport.NewServer(
+		endpoints.RefresToken,
+		decodeRefreshTokenRequest,
+		encodeResponse,
+	))
+
+	baseR.Methods(http.MethodGet).Path("/check-username/{username}").Handler(httptransport.NewServer(
+		endpoints.UsernameAvailability,
+		decodeUsernameAvailabilityRequest,
+		encodeResponse,
+	))
+
+	// @ %40
+	baseR.Methods(http.MethodGet).Path("/check-email/{email}").Handler(httptransport.NewServer(
+		endpoints.EmailAvailability,
+		decodeEmailAvailabilityRequest,
+		encodeResponse,
+	))
+
+	return baseR
 
 }
 

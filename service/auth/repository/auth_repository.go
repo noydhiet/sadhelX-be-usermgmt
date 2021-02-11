@@ -4,8 +4,10 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"shadelx-be-usermgmt/datastruct"
+	"shadelx-be-usermgmt/service/auth/pkg/mailer"
 	"shadelx-be-usermgmt/util"
 	"time"
 
@@ -113,4 +115,71 @@ func (auth *AuthRepository) GenerateCustomKey(userID string, tokenHash string) s
 	h.Write([]byte(userID))
 	sha := hex.EncodeToString(h.Sum(nil))
 	return sha
+}
+
+// SendEmailVerification ..
+func (auth *AuthRepository) SendEmailVerification(mailData *MailDataTemplate, user *datastruct.UserInformation, typeCode MailType) (bool, error) {
+
+	// var expireDuration int
+	var emailSubject string
+	var templatePath string
+
+	if typeCode == 1 {
+		emailSubject = "Email Verification"
+		// expireDuration = auth.configs.MailVerifCodeExpiration
+		templatePath = auth.configs.MailVerifTemplatePath
+
+	} else if typeCode == 2 {
+		emailSubject = "Password Reset Request"
+		// expireDuration = auth.configs.PassResetCodeExpiration
+		templatePath = auth.configs.PassResetTemplatePath
+
+	}
+	// verificationData := &datastruct.VerificationData{
+	// 	Email:     user.Email,
+	// 	Code:      mailData.Code,
+	// 	Type:      datastruct.VerificationDataType(typeCode),
+	// 	ExpiresAt: time.Now().Add(time.Minute * time.Duration(expireDuration)),
+	// }
+
+	mailConf := mailer.NewConfig(
+		"sadlex.auth.service",
+		"sadhelx.info@gmail.com",
+		"ugmdomeenewdxvau",
+		"smtp.gmail.com",
+		587,
+	)
+
+	mailReq := mailer.NewRequest(
+		"sadhelx.info@gmail.com",
+		emailSubject,
+		"",
+		"user.Email",
+	)
+	if err := mailReq.WithTemplate(
+		templatePath,
+		mailData,
+	); err != nil {
+		return false, err
+	}
+
+	ok, err := mailReq.SendEmailWithConfig(mailConf)
+
+	return ok, err
+
+}
+
+// VerifyCode ...
+func (auth *AuthRepository) VerifyCode(actualVerificationData *datastruct.VerificationData, verificationData *datastruct.VerificationData) (bool, error) {
+
+	// check for expiration
+	if actualVerificationData.ExpiresAt.Before(time.Now()) {
+		return false, errors.New("Confirmation code has expired. Please try generating a new code")
+	}
+
+	if actualVerificationData.Code != verificationData.Code {
+		return false, errors.New("Verification code provided is Invalid. Please look in your mail for the code")
+	}
+
+	return true, nil
 }

@@ -46,6 +46,7 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // GenerateRandomString ...
 func GenerateRandomString(n int) string {
+	rand.Seed(time.Now().UTC().UnixNano())
 	sb := strings.Builder{}
 	sb.Grow(n)
 	for i := 0; i < n; i++ {
