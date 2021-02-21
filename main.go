@@ -23,26 +23,29 @@ import (
 
 var db *sql.DB
 
-// const (
-// 	dbhost = "localhost"
-// 	dbport = "5432"
-// 	dbuser = "sadhelx_usr"
-// 	dbpass = "s4dhelx"
-// 	dbname = "sdx_usermgmt_db"
-// )
-
 func main() {
+
+	// Logfmt is a structured, key=val logging format that is easy to read and parse
+	// Direct any attempts to use Go's log package to our structured logger
+	// stdlog.SetOutput(log.NewStdlibAdapter(logger))
+
+	// Create an instance of our LoggingMiddleware with our configured logger
+	// loggedRouter := loggingMiddleware(router)
 
 	var logger log.Logger
 	{
 		logger = log.NewLogfmtLogger(os.Stdout)
 		logger = log.NewSyncLogger(logger)
+		// Log the timestamp (in UTC) and the callsite (file + line number) of the logging
+		// call for debugging in the future.
 		logger = log.With(logger,
 			"service", "usermgmt",
 			"time", log.DefaultTimestampUTC,
 			"caller", log.DefaultCaller,
 		)
 	}
+	loggingMiddleware := auth.LoggingMiddleware(logger)
+
 	level.Info(logger).Log("msg", "service started")
 	defer level.Info(logger).Log("msg", "service ended")
 
@@ -57,25 +60,14 @@ func main() {
 
 	var srv auth.Service
 	{
-		dbRepo := repository.NewPostgresRepository(
-			db,
-			logger,
-		)
-		authRepo := repository.NewAuthRepo(
+		svcRepository := repository.NewRepo(db, logger)
+
+		srv = auth.NewService(
+			svcRepository,
 			configs,
 			logger,
 		)
-		repository := repository.NewRepo(
-			*dbRepo,
-			*authRepo,
-			logger,
-		)
-		srv = auth.NewService(
-			repository,
-			logger,
-		)
 	}
-
 	endpoints := auth.MakeAuthEndpoints(srv)
 
 	errChan := make(chan error)
@@ -89,7 +81,7 @@ func main() {
 	go func() {
 		level.Info(logger).Log("listening-on", configs.ServerPort)
 		handler := auth.NewHTTPServer(ctx, endpoints)
-		errChan <- http.ListenAndServe(*httpAddr, handler)
+		errChan <- http.ListenAndServe(*httpAddr, loggingMiddleware(handler))
 
 	}()
 
@@ -114,4 +106,5 @@ func initDb(confs *util.Configurations) {
 		panic(err)
 	}
 	fmt.Println("Successfully connected!")
+
 }

@@ -3,6 +3,7 @@ package datastruct
 import (
 	"context"
 	"errors"
+	"shadelx-be-usermgmt/util"
 	"strings"
 	"time"
 )
@@ -10,29 +11,20 @@ import (
 type (
 	// UserInformation represent user inside business logic
 	UserInformation struct {
-		UserID      uint32    `json:"user_id,omitempty"`
-		Username    string    `json:"username"`
-		Email       string    `json:"email"`
-		Firstname   string    `json:"firstname,omitempty"`
-		Lastname    string    `json:"lastname,omitempty"`
-		Phonenumber string    `json:"phonenumber,omitempty"`
-		Password    string    `json:"password"`
-		CreatedBy   string    `json:"created_by,omitempty"`
-		CreatedDate time.Time `json:"created_date,omitempty"`
-		UpdatedBy   string    `json:"updated_by,omitempty"`
-		UpdatedDate time.Time `json:"updated_date,omitempty"`
-		TokenHash   string    `json:"token_hash"`
-	}
-
-	// UserRepository is an interface for the storage implementation of the usermgmt service
-	UserRepository interface {
-		Signup(ctx context.Context, user UserInformation) (string, error)
-		Login(ctx context.Context, identity string, password string) (map[string]string, error)
-		UsernameAvailability(ctx context.Context, identity string) (bool, error)
-		EmailAvailability(ctx context.Context, identity string) (bool, error)
-		VerifyPasswordReset(ctx context.Context, identity, code string) (bool, error)
-		GetResetPasswordCode(ctx context.Context, identity string) (bool, error)
-		RefreshToken(ctx context.Context, identity string) (string, error)
+		UserID        uint32    `json:"user_id,omitempty"`
+		Username      string    `json:"username"`
+		Email         string    `json:"email"`
+		Firstname     string    `json:"firstname,omitempty"`
+		Lastname      string    `json:"lastname,omitempty"`
+		Phonenumber   string    `json:"phonenumber,omitempty"`
+		Password      string    `json:"password"`
+		CreatedBy     string    `json:"created_by,omitempty"`
+		CreatedDate   time.Time `json:"created_date,omitempty"`
+		UpdatedBy     string    `json:"updated_by,omitempty"`
+		UpdatedDate   time.Time `json:"updated_date,omitempty"`
+		TokenHash     string    `json:"token_hash"`
+		EmailVerified bool      `json:"email_verified,omitempty"`
+		ImageFile     string    `json:"image_file,omitempty"`
 	}
 
 	// VerificationDataType ...
@@ -45,6 +37,22 @@ type (
 		ExpiresAt time.Time            `json:"expires_at" sql:"expires_at"`
 		Type      VerificationDataType `json:"type" sql:"type"`
 	}
+
+	// DBRepository list all db operartion for those entity
+	DBRepository interface {
+		CreateUser(ctx context.Context, user *UserInformation) error
+		GetUserByEmail(ctx context.Context, email string) (*UserInformation, error)
+		GetUserByUsername(ctx context.Context, username string) (*UserInformation, error)
+		UpdateUserPassword(ctx context.Context, email string, password string, tokenHash string) error
+		EmailIsExist(ctx context.Context, email string) (bool, error)
+		UsernameIsExist(ctx context.Context, username string) (bool, error)
+		UpdateUserAvatar(ctx context.Context, user *UserInformation) error
+		UpdateEmailVerified(ctx context.Context, user *UserInformation) error
+
+		CreateVerificationData(ctx context.Context, data *VerificationData) error
+		GetVerificationData(ctx context.Context, email string, verificationDataType int) (*VerificationData, error)
+		DeleteVerificationData(ctx context.Context, verificationData *VerificationData) error
+	}
 )
 
 // Validate ...
@@ -55,13 +63,13 @@ func (user *UserInformation) Validate() error {
 	user.Email = strings.TrimSpace(strings.ToLower(user.Email))
 	if user.Email == "" {
 		// return util.NewBadRequestError("invalid email address")
-		return errors.New("invalid email address")
+		return errors.New(util.ErrBadRequest)
 	}
 
 	user.Password = strings.TrimSpace(user.Password)
 	if user.Password == "" {
 		// return util.NewBadRequestError("invalid password")
-		return errors.New("invalid passwword")
+		return errors.New(util.ErrBadRequest)
 	}
 	return nil
 }

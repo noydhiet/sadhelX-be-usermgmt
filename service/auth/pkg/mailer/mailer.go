@@ -58,13 +58,13 @@ func (req *Mail) SendEmailWithConfig(conf *Config) (bool, error) {
 		conf.identity,
 		conf.username,
 		conf.password,
-		fmt.Sprintf("%s:%d", conf.hostAddr, conf.hostPort),
+		conf.hostAddr,
 	)
 
 	msg := "To: " + req.to[0] + "\r\nSubject: " + req.subject + "\r\n" + mime + "\r\n" + req.body
 
 	if err := smtp.SendMail(
-		conf.username,
+		fmt.Sprintf("%s:%d", conf.hostAddr, conf.hostPort),
 		auth,
 		req.from,
 		req.to,

@@ -46,9 +46,9 @@ func NewConfigurations(logger log.Logger) *Configurations {
 	viper.SetDefault("JWT_SECRET", "bE8fsjU^BD$n%7")
 	viper.SetDefault("JWT_EXPIRATION", 30)
 	viper.SetDefault("PASSWORD_RESET_CODE_EXPIRATION", 15)
-	viper.SetDefault("PASSWORD_RESET_TEMPLATE_PATH", "../templates/password_reset.html")
+	viper.SetDefault("PASSWORD_RESET_TEMPLATE_PATH", "templates/password_reset.html")
 	viper.SetDefault("MAIL_VERIFICATION_CODE_EXPIRATION", 24)
-	viper.SetDefault("MAIL_VERIFICATION_TEMPLATE_PATH", "")
+	viper.SetDefault("MAIL_VERIFICATION_TEMPLATE_PATH", "templates/confirm_mail.html")
 
 	configs := &Configurations{
 		// ServerAddress: viper.GetString("SERVER_ADDRESS"),
