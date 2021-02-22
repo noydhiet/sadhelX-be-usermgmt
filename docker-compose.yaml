@@ -4,10 +4,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on: 
+      - sadhelx-be-usermgmt_db
     environment:
       - SERVER=DEVELOPMENT
     ports:
       - 8088:8088
+    volumes:
+     - usermgmt_svc_avatar:/assets/user-avatar
     restart: unless-stopped
     networks:
       - sadhelx_network
@@ -15,9 +19,27 @@ services:
 
   sadhelx-be-usermgmt_db:
     image: postgres
+    environment: 
+      - POSTGRES_USER=sadhelx_usr
+      - POSTGRES_PASSWORD=s4dhelx
+      - POSTGRES_DB=sdx_usermgmt_db
+    ports:
+      - 54321:5432
+    volumes:
+      - ./sadhelx-be-usermgmt.sql:/docker-entrypoint-initdb.d/init.sql
+      - usermgmt_db:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks: 
+      - sadhelx_network
+
+
+volumes:
+  usermgmt_db:
+  usermgmt_svc_avatar:
+
 
 networks:
-  sadhwlx_network:
-    external: true
+  sadhelx_network:
+    name: usermgmt_net
 
 

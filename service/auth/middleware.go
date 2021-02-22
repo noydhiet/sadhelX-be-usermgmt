@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"runtime/debug"
 	"shadelx-be-usermgmt/service/auth/pkg/jwt"
+	"shadelx-be-usermgmt/service/auth/pkg/validator"
 	"strings"
 	"time"
 
-	"github.com/d-vignesh/go-jwt-auth/data"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 )
@@ -34,7 +34,7 @@ func MiddlewareValidateRefreshToken(next http.Handler) http.Handler {
 		if err != nil {
 			// ah.logger.Error("token not provided or malformed")
 			w.WriteHeader(http.StatusBadRequest)
-			data.ToJSON(&Response{Status: false, Message: "Authentication failed. Token not provided or malformed"}, w)
+			validator.ToJSON(&Response{Status: false, Message: "Authentication failed. Token not provided or malformed"}, w)
 			return
 		}
 
@@ -45,7 +45,7 @@ func MiddlewareValidateRefreshToken(next http.Handler) http.Handler {
 		if err != nil {
 			// ah.logger.Error("token validation failed", "error", err)
 			w.WriteHeader(http.StatusBadRequest)
-			data.ToJSON(&Response{Status: false, Message: "Authentication failed. Invalid token"}, w)
+			validator.ToJSON(&Response{Status: false, Message: "Authentication failed. Invalid token"}, w)
 			return
 		}
 		// ah.logger.Debug("refresh token validated")
