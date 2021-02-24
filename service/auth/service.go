@@ -128,9 +128,14 @@ func (s *service) Signup(ctx context.Context, user datastruct.UserInformation) (
 		return nil, errors.New(util.ErrUserCreation)
 	}
 
+	code, err := util.GenerateRandom4Digits()
+	if err == nil {
+		return nil, errors.New(util.ErrInternalServerError)
+	}
 	mailData := &MailDataTemplate{
 		Username: user.Username,
-		Code:     strings.ToUpper(util.GenerateRandomString(4)),
+		// Code:     strings.ToUpper(util.GenerateRandomString(4)),
+		Code: fmt.Sprint(code),
 	}
 	verificationData := &datastruct.VerificationData{
 		Email:     user.Email,

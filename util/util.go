@@ -1,6 +1,8 @@
 package util
 
 import (
+	crand "crypto/rand"
+	"math/big"
 	"math/rand"
 	"strings"
 	"time"
@@ -55,4 +57,15 @@ func GenerateRandomString(n int) string {
 // GetNow ...
 func GetNow() time.Time {
 	return time.Now().UTC()
+}
+
+// GenerateRandom4Digits ...
+func GenerateRandom4Digits() (uint64, error) {
+	rand.Seed(time.Now().UTC().UnixNano())
+	max := big.NewInt(9999)
+	n, err := crand.Int(crand.Reader, max)
+	if err != nil {
+		return 0, err
+	}
+	return n.Uint64(), nil
 }
