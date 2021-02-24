@@ -129,8 +129,8 @@ func (s *service) Signup(ctx context.Context, user datastruct.UserInformation) (
 	}
 
 	code, err := util.GenerateRandom4Digits()
-	if err == nil {
-		return nil, errors.New("error generate verif code ")
+	if err != nil {
+		return nil, errors.New("error generate verif code")
 	}
 	mailData := &MailDataTemplate{
 		Username: user.Username,

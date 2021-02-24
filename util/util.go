@@ -67,5 +67,6 @@ func GenerateRandom4Digits() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return n.Uint64(), nil
 }
