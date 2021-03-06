@@ -59,10 +59,10 @@ func GetNow() time.Time {
 	return time.Now().UTC()
 }
 
-// GenerateRandom4Digits ...
-func GenerateRandom4Digits() (uint64, error) {
+// GenerateRandom6Digits ...
+func GenerateRandom6Digits() (uint64, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
-	max := big.NewInt(9999)
+	max := big.NewInt(999999)
 	n, err := crand.Int(crand.Reader, max)
 	if err != nil {
 		return 0, err

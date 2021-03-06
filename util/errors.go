@@ -23,6 +23,7 @@ const (
 	ErrPasswordResetCodeInvalid = "Verification code provided is invalid"
 	ErrPassordNotMatched        = "Password and password re-enter did not match"
 	ErrUpdateAvatar             = "Filed to save avatar"
+	ErrGenerateOTP              = "There was an error generating the token. Please try again."
 
 	MsgCreateUser                 = "User created sucessfully"
 	MsgLoginSuccess               = "Login successful"
@@ -54,6 +55,7 @@ var statusCodeByMsg = map[string]int{
 	ErrPassordNotMatched:        http.StatusBadRequest,
 	ErrUpdateAvatar:             http.StatusInternalServerError,
 	ErrEmailUnverified:          http.StatusUnauthorized,
+	ErrGenerateOTP:              http.StatusInternalServerError,
 
 	MsgCreateUser:                 http.StatusCreated,
 	MsgLoginSuccess:               http.StatusOK,

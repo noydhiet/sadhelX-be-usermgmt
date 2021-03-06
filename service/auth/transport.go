@@ -23,11 +23,15 @@ func NewHTTPServer(ctx context.Context, endpoints Endpoints) http.Handler {
 	postR := apiR.Methods(http.MethodPost).Subrouter()
 	// postR.Use(MiddlewareValidateUser)
 
-	postR.Path("/signup").Handler(httptransport.NewServer(
+	regisR := apiR.Methods(http.MethodPost).Subrouter()
+	// regisR.Use(MiddlewareValidateUser)
+
+	regisR.Path("/signup").Handler(httptransport.NewServer(
 		endpoints.Signup,
 		decodeSignupRequest,
 		encodeResponse,
 	))
+
 	postR.Path("/login").Handler(httptransport.NewServer(
 		endpoints.Login,
 		decodeLoginRequest,

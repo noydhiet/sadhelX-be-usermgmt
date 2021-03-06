@@ -33,7 +33,7 @@ const (
 	queryEmailVerified     = "UPDATE tbl_mstr_user SET email_verified = $1 WHERE email = $2"
 
 	queryStoreVerificationData  = "INSERT INTO tbl_trx_verification_email(email, code, type, expires_at) VALUES($1, $2, $3, $4)"
-	queryGetVerificationData    = "SELECT email, code, expires_at, type FROM tbl_trx_verification_email WHERE email = $1 AND type = $2"
+	queryGetVerificationData    = "SELECT email, code, expires_at, type FROM tbl_trx_verification_email WHERE email = $1 AND type = $2 ORDER BY expires_at LIMIT 1"
 	queryDeleteVerificationData = "DELETE FROM tbl_trx_verification_email WHERE email = $1 AND type = $2"
 )
 

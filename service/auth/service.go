@@ -128,9 +128,9 @@ func (s *service) Signup(ctx context.Context, user datastruct.UserInformation) (
 		return nil, errors.New(util.ErrUserCreation)
 	}
 
-	code, err := util.GenerateRandom4Digits()
+	code, err := util.GenerateRandom6Digits()
 	if err != nil {
-		return nil, errors.New("error generate verif code")
+		return nil, errors.New(util.ErrGenerateOTP)
 	}
 	mailData := &MailDataTemplate{
 		Username: user.Username,
@@ -223,7 +223,7 @@ func (s *service) UsernameAvailability(ctx context.Context, username string) (st
 	if isExist && err == nil {
 		return "", errors.New(util.ErrUsernameAvailability)
 	}
-	return util.MsgEmailAvail, nil
+	return util.MsgUserAvail, nil
 }
 
 func (s *service) EmailAvailability(ctx context.Context, email string) (string, error) {
@@ -308,9 +308,15 @@ func (s *service) GetResetPasswordCode(ctx context.Context, identity string) (bo
 		}
 	}
 
+	code, err := util.GenerateRandom6Digits()
+	if err != nil {
+		return false, errors.New(util.ErrGenerateOTP)
+	}
+
 	mailData := &MailDataTemplate{
 		Username: user.Username,
-		Code:     strings.ToUpper(util.GenerateRandomString(4)),
+		// Code:     strings.ToUpper(util.GenerateRandomString(4)),
+		Code: fmt.Sprint(code),
 	}
 	verificationData := &datastruct.VerificationData{
 		Email:     user.Email,
