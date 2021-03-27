@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"google.golang.org/api/idtoken"
 
 	"shadelx-be-usermgmt/datastruct"
 	"shadelx-be-usermgmt/service/auth/pkg/jwt"
@@ -26,6 +28,8 @@ type (
 	Service interface {
 		Signup(ctx context.Context, user datastruct.UserInformation) (*datastruct.UserInformation, error)
 		Login(ctx context.Context, usernmae string, password string) (*datastruct.UserInformation, map[string]string, error)
+		// GoogleSignIn(ctx context.Context, idToken string) (*oauth2.Tokeninfo, error)
+		GoogleSignIn(ctx context.Context, idToken string) (*datastruct.UserInformation, map[string]string, error)
 		UsernameAvailability(ctx context.Context, identity string) (string, error)
 		EmailAvailability(ctx context.Context, identity string) (string, error)
 		ResetPassword(ctx context.Context, identity, code, password, passwordRe string) error
@@ -38,6 +42,7 @@ type (
 
 	service struct {
 		repository datastruct.DBRepository
+		mailer     mailer.Service
 		configs    *util.Configurations
 		logger     log.Logger
 	}
@@ -51,6 +56,15 @@ type (
 		Username string
 		Code     string
 	}
+
+	GoogleSignInPayloadClaims struct {
+		AtHash        string `json:"at_hash"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"email_verified"`
+		FamilyName    string `json:"family_name"`
+		GivenName     string `json:"given_name"`
+		Picture       string `json:"picture"`
+	}
 )
 
 const (
@@ -61,8 +75,9 @@ const (
 )
 
 // NewService ...
-func NewService(repo datastruct.DBRepository, configs *util.Configurations, logger log.Logger) Service {
+func NewService(ms mailer.Service, repo datastruct.DBRepository, configs *util.Configurations, logger log.Logger) Service {
 	return &service{
+		mailer:     ms,
 		repository: repo,
 		configs:    configs,
 		logger:     log.With(logger, "repo", "service"),
@@ -132,30 +147,174 @@ func (s *service) Signup(ctx context.Context, user datastruct.UserInformation) (
 	if err != nil {
 		return nil, errors.New(util.ErrGenerateOTP)
 	}
-	mailData := &MailDataTemplate{
+
+	// Send verification mail
+	from := "sandbox.repoerna@gmail.com"
+	to := []string{user.Email}
+	subject := "Email Verification for Bookite"
+	mailType := mailer.MailConfirmation
+	mailData := &mailer.MailData{
 		Username: user.Username,
 		// Code:     strings.ToUpper(util.GenerateRandomString(4)),
 		Code: fmt.Sprint(code),
 	}
+	// mailData := &mailer.MailData{
+	// 	Username: user.Username,
+	// 	Code:     fmt.Sprint(code),
+	// }
+
+	mailReq := s.mailer.NewMail(from, to, subject, mailType, mailData)
+	if err = s.mailer.SendMail(mailReq); err != nil {
+		level.Error(s.logger).Log("err", err.Error())
+		return nil, errors.New("can't send verification email")
+		// return nil, errors.New(util.ErrInternalServerError)
+
+	}
+
+	// _, err = sendEmailVerification(mailData, MailConfirmation, &user, s.configs)
+	// if err != nil {
+	// 	level.Error(s.logger).Log("err", err.Error())
+	// 	return nil, errors.New(util.ErrEmailSend)
+	// }
+
 	verificationData := &datastruct.VerificationData{
 		Email:     user.Email,
 		Code:      mailData.Code,
 		Type:      datastruct.VerificationDataType(MailConfirmation),
 		ExpiresAt: time.Now().Add(time.Minute * time.Duration(30)),
 	}
-
-	_, err = sendEmailVerification(mailData, MailConfirmation, &user, s.configs)
-	if err != nil {
-		level.Error(s.logger).Log("err", err.Error())
-		return nil, errors.New(util.ErrEmailSend)
-	}
-
 	if err = s.repository.CreateVerificationData(ctx, verificationData); err != nil {
 		level.Error(s.logger).Log("err", err.Error())
 		return nil, errors.New(util.ErrDBPostgre)
 	}
 
 	return &user, nil
+}
+
+func (s *service) GoogleSignIn(ctx context.Context, idToken string) (*datastruct.UserInformation, map[string]string, error) {
+
+	payload, err := idtoken.Validate(ctx, idToken, "79256613338-bmt5o1c36gs1es0kj9fbtj2otsdoocvf.apps.googleusercontent.com")
+
+	if err != nil && err.Error() == "idtoken: token expired" {
+		return nil, nil, errors.New(util.ErrInvalidToken)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if payload.Issuer != "accounts.google.com" {
+		return nil, nil, errors.New(util.ErrBadRequest)
+	}
+
+	if payload.Audience != "79256613338-bmt5o1c36gs1es0kj9fbtj2otsdoocvf.apps.googleusercontent.com" {
+		return nil, nil, errors.New(util.ErrBadRequest)
+	}
+
+	var claims GoogleSignInPayloadClaims
+	jsonString, err := json.Marshal(payload.Claims)
+	if err = json.Unmarshal(jsonString, &claims); err != nil {
+		fmt.Println(err.Error())
+		return nil, nil, errors.New(util.ErrInternalServerError)
+	}
+
+	isEmailExist, err := s.repository.EmailIsExist(ctx, claims.Email)
+	if err != nil {
+		level.Error(s.logger).Log("err", err.Error())
+		return nil, nil, errors.New(util.ErrDBPostgre)
+	}
+
+	if isEmailExist && err == nil {
+		fmt.Println("email exist")
+
+		fmt.Println("2")
+
+		user, err := s.repository.GetUserByEmail(ctx, claims.Email)
+		if err != nil && err == sql.ErrNoRows {
+			return nil, nil, errors.New(util.ErrInvalidUsernameEmail)
+		}
+		if err != nil {
+			level.Error(s.logger).Log("err", err)
+			return nil, nil, err
+		}
+
+		accessToken, err := jwt.GenerateAccessToken(fmt.Sprint(user.UserID), int64(s.configs.JwtExpiration), s.configs.JwtSecret)
+		if err != nil {
+			level.Error(s.logger).Log("msg", "unable to generate access token", "err", err)
+			return nil, nil, errors.New(util.ErrLoginToken)
+		}
+
+		custKey := jwt.CreateCustomKey(user.TokenHash, fmt.Sprint(user.UserID))
+
+		refreshToken, err := jwt.GenerateRefreshToken(fmt.Sprint(user.UserID), custKey, s.configs.JwtSecret)
+		if err != nil {
+			level.Error(s.logger).Log("msg", "unable to generate refresh token", "err", err)
+			return nil, nil, errors.New(util.ErrLoginToken)
+		}
+
+		token := make(map[string]string)
+		token["access_token"] = accessToken
+		token["refresh_token"] = refreshToken
+
+		return user, token, nil
+
+	}
+	if !isEmailExist {
+		// register & login
+		uuid, err := util.GenerateUUID()
+		if err != nil {
+			level.Error(s.logger).Log("err", err.Error())
+			return nil, nil, errors.New(util.ErrInternalServerError)
+		}
+
+		hashedPass, err := util.PasswordHashing(util.GeneratePassword())
+		if err != nil {
+			level.Error(s.logger).Log("err", err.Error())
+			return nil, nil, errors.New(util.ErrInternalServerError)
+		}
+
+		tokenHash := util.GenerateRandomString(15)
+
+		var user datastruct.UserInformation
+		user.UserID = uuid
+		user.Email = claims.Email
+		user.Firstname = claims.GivenName
+		user.Lastname = claims.FamilyName
+		user.Password = hashedPass
+		user.ImageFile = claims.Picture
+		user.TokenHash = tokenHash
+		user.CreatedBy = "sadhelx.auth.service"
+		user.CreatedDate = util.GetNow()
+		user.UpdatedBy = "sadhelx.auth.service"
+		user.UpdatedDate = util.GetNow()
+		user.EmailVerified = true
+
+		if err := s.repository.CreateUser(ctx, &user); err != nil {
+			level.Error(s.logger).Log("err", err.Error())
+			return nil, nil, errors.New(util.ErrUserCreation)
+		}
+
+		accessToken, err := jwt.GenerateAccessToken(fmt.Sprint(user.UserID), int64(s.configs.JwtExpiration), s.configs.JwtSecret)
+		if err != nil {
+			level.Error(s.logger).Log("msg", "unable to generate access token", "err", err)
+			return nil, nil, errors.New(util.ErrLoginToken)
+		}
+
+		custKey := jwt.CreateCustomKey(user.TokenHash, fmt.Sprint(user.UserID))
+
+		refreshToken, err := jwt.GenerateRefreshToken(fmt.Sprint(user.UserID), custKey, s.configs.JwtSecret)
+		if err != nil {
+			level.Error(s.logger).Log("msg", "unable to generate refresh token", "err", err)
+			return nil, nil, errors.New(util.ErrLoginToken)
+		}
+
+		token := make(map[string]string)
+		token["access_token"] = accessToken
+		token["refresh_token"] = refreshToken
+		// return nil, nil, nil
+
+		return &user, token, nil
+	}
+	return nil, nil, errors.New(util.ErrInternalServerError)
 }
 
 func (s *service) Login(ctx context.Context, identity string, password string) (*datastruct.UserInformation, map[string]string, error) {

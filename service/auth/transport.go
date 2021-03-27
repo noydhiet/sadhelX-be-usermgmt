@@ -38,6 +38,12 @@ func NewHTTPServer(ctx context.Context, endpoints Endpoints) http.Handler {
 		encodeResponse,
 	))
 
+	postR.Path("/google-sign-in").Handler(httptransport.NewServer(
+		endpoints.GoogleSignIn,
+		decodeGoogleSignIn,
+		encodeResponse,
+	))
+
 	postR.Path("/get-password-reset-code").Handler(httptransport.NewServer(
 		endpoints.GetResetPasswordCode,
 		decodeGetResetPasswordCodeRequest,

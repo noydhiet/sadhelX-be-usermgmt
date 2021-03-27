@@ -19,6 +19,7 @@ type (
 	Endpoints struct {
 		Signup               endpoint.Endpoint
 		Login                endpoint.Endpoint
+		GoogleSignIn         endpoint.Endpoint
 		UsernameAvailability endpoint.Endpoint
 		EmailAvailability    endpoint.Endpoint
 		RefresToken          endpoint.Endpoint
@@ -38,6 +39,10 @@ type (
 	LoginReq struct {
 		Identity string
 		Password string
+	}
+
+	googleSignInReq struct {
+		IDToken string `json:"id_token"`
 	}
 
 	// UsernameAvailabilityReq data format
@@ -111,6 +116,7 @@ func MakeAuthEndpoints(svc Service) Endpoints {
 	return Endpoints{
 		Signup:               makeSignupEndpoint(svc),
 		Login:                makeLoginEndopint(svc),
+		GoogleSignIn:         makeGoogleSignIn(svc),
 		UsernameAvailability: makeUsernameAvailabilityRequest(svc),
 		EmailAvailability:    makeEmailAvailabilityRequest(svc),
 		RefresToken:          makeRefreshTokenEndopint(svc),
@@ -126,21 +132,21 @@ func makeSignupEndpoint(svc Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(SignupReq)
 
-		user, err := svc.Signup(ctx, req.User)
+		_, err := svc.Signup(ctx, req.User)
 		if err != nil {
 			return Response{Status: false, Message: err.Error()}, nil
 		}
 
-		var useSend userRes
-		useSend.UserID = user.UserID
-		useSend.Username = user.Username
-		useSend.Email = user.Email
-		useSend.Firstname = user.Firstname
+		// var useSend userRes
+		// useSend.UserID = user.UserID
+		// useSend.Username = user.Username
+		// useSend.Email = user.Email
+		// useSend.Firstname = user.Firstname
 
-		data := make(map[string]interface{})
-		data["user"] = useSend
+		// data := make(map[string]interface{})
+		// data["user"] = useSend
 
-		return Response{Status: true, Message: util.MsgCreateUser, Data: data}, nil
+		return Response{Status: true, Message: util.MsgCreateUser}, nil
 	}
 }
 
@@ -190,6 +196,48 @@ func decodeLoginRequest(_ context.Context, r *http.Request) (request interface{}
 		return nil, e
 	}
 	return req, nil
+}
+
+func makeGoogleSignIn(svc Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(googleSignInReq)
+
+		user, token, err := svc.GoogleSignIn(ctx, req.IDToken)
+		if err != nil {
+			// fmt.Println(err)
+			return Response{Status: false, Message: err.Error()}, nil
+		}
+
+		var tokenRes tokenRes
+		tokenRes.TokenAccess = token["access_token"]
+		tokenRes.TokenRefresh = token["refresh_token"]
+
+		var userRes userRes
+		userRes.UserID = user.UserID
+		userRes.Username = user.Username
+		userRes.Email = user.Email
+		userRes.Firstname = user.Firstname
+		userRes.ImageFile = user.ImageFile
+
+		data := make(map[string]interface{})
+		data["user"] = userRes
+		data["token"] = tokenRes
+
+		return Response{
+			Status:  true,
+			Message: util.MsgLoginSuccess,
+			Data:    data,
+		}, nil
+	}
+}
+
+func decodeGoogleSignIn(_ context.Context, r *http.Request) (request interface{}, err error) {
+	var req googleSignInReq
+	if e := json.NewDecoder(r.Body).Decode(&req); e != nil {
+		return nil, e
+	}
+	return req, nil
+
 }
 
 func makeUsernameAvailabilityRequest(svc Service) endpoint.Endpoint {

@@ -14,12 +14,12 @@ import (
 // 	// NewMail(from string, to []string, subject string, mailType MailType, data *MailData) *Mail
 // }
 
-type Mail struct {
-	from    string
-	to      []string
-	subject string
-	body    string
-}
+// type Mail struct {
+// 	from    string
+// 	to      []string
+// 	subject string
+// 	body    string
+// }
 
 type Config struct {
 	identity string

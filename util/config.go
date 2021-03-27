@@ -22,8 +22,10 @@ type Configurations struct {
 	JwtExpiration           int // in minutes
 	PassResetCodeExpiration int // in minutes
 	PassResetTemplatePath   string
+	PassResetTemplateID     string
 	MailVerifCodeExpiration int // in hours
 	MailVerifTemplatePath   string
+	MailVerifTemplateID     string
 }
 
 // NewConfigurations returns a new Configuration object
@@ -38,8 +40,8 @@ func NewConfigurations(logger log.Logger) *Configurations {
 
 	// viper.SetDefault("SERVER_ADDRESS", "0.0.0.0:8088")
 	viper.SetDefault("SERVER_PORT", "8088")
-	viper.SetDefault("DB_HOST", "sadhelx-be-usermgmt_db")
-	// viper.SetDefault("DB_HOST", "localhost")
+	// viper.SetDefault("DB_HOST", "sadhelx_db")
+	viper.SetDefault("DB_HOST", "localhost")
 	viper.SetDefault("DB_NAME", "sdx_usermgmt_db")
 	viper.SetDefault("DB_USER", "sadhelx_usr")
 	viper.SetDefault("DB_PASSWORD", "s4dhelx")
@@ -52,6 +54,8 @@ func NewConfigurations(logger log.Logger) *Configurations {
 	viper.SetDefault("PASSWORD_RESET_TEMPLATE_PATH", "templates/password_reset.html")
 	viper.SetDefault("MAIL_VERIFICATION_CODE_EXPIRATION", 24)
 	viper.SetDefault("MAIL_VERIFICATION_TEMPLATE_PATH", "templates/confirm_mail.html")
+	viper.SetDefault("MAIL_VERIF_TEMPLATE_ID", "d-33f5050a59604892b76f37450f476f12")
+	viper.SetDefault("PASS_RESET_TEMPLATe_ID", "d-86a003810c6341fd9d4442738e7b95a8")
 
 	configs := &Configurations{
 		// ServerAddress: viper.GetString("SERVER_ADDRESS"),
@@ -68,6 +72,8 @@ func NewConfigurations(logger log.Logger) *Configurations {
 		PassResetTemplatePath:   viper.GetString("PASSWORD_RESET_TEMPLATE_PATH"),
 		MailVerifCodeExpiration: viper.GetInt("MAIL_VERIFICATION_CODE_EXPIRATION"),
 		MailVerifTemplatePath:   viper.GetString("MAIL_VERIFICATION_TEMPLATE_PATH"),
+		MailVerifTemplateID:     viper.GetString("MAIL_VERIF_TEMPLATE_ID"),
+		PassResetTemplateID:     viper.GetString("PASS_RESET_TEMPLATe_ID"),
 	}
 
 	level.Debug(logger).Log("serve port", configs.ServerPort)
