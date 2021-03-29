@@ -58,6 +58,7 @@ type (
 	}
 
 	GoogleSignInPayloadClaims struct {
+		Aud           string `json:"aud"`
 		AtHash        string `json:"at_hash"`
 		Email         string `json:"email"`
 		EmailVerified bool   `json:"email_verified"`
@@ -193,16 +194,20 @@ func (s *service) Signup(ctx context.Context, user datastruct.UserInformation) (
 
 func (s *service) GoogleSignIn(ctx context.Context, idToken string) (*datastruct.UserInformation, map[string]string, error) {
 
+	// payload, err := idtoken.Validate(ctx, idToken, "79256613338-felpgs5vq0a2bv9jam75mulpuv0a1j3f.apps.googleusercontent.com")
 	payload, err := idtoken.Validate(ctx, idToken, "79256613338-bmt5o1c36gs1es0kj9fbtj2otsdoocvf.apps.googleusercontent.com")
 
-	if err != nil && err.Error() == "idtoken: token expired" {
-		return nil, nil, errors.New(util.ErrInvalidToken)
-	}
+	// fmt.Println(payload)
+	// fmt.Println(err.Error())
+
 	if err != nil {
+		if err.Error() == "idtoken: token expired" {
+			return nil, nil, errors.New(util.ErrInvalidToken)
+		}
 		return nil, nil, err
 	}
 
-	if payload.Issuer != "accounts.google.com" {
+	if payload.Issuer != "https://accounts.google.com" {
 		return nil, nil, errors.New(util.ErrBadRequest)
 	}
 
@@ -215,6 +220,10 @@ func (s *service) GoogleSignIn(ctx context.Context, idToken string) (*datastruct
 	if err = json.Unmarshal(jsonString, &claims); err != nil {
 		fmt.Println(err.Error())
 		return nil, nil, errors.New(util.ErrInternalServerError)
+	}
+
+	if claims.Aud != "79256613338-bmt5o1c36gs1es0kj9fbtj2otsdoocvf.apps.googleusercontent.com" {
+		return nil, nil, errors.New(util.ErrBadRequest)
 	}
 
 	isEmailExist, err := s.repository.EmailIsExist(ctx, claims.Email)
@@ -315,6 +324,7 @@ func (s *service) GoogleSignIn(ctx context.Context, idToken string) (*datastruct
 		return &user, token, nil
 	}
 	return nil, nil, errors.New(util.ErrInternalServerError)
+	// return nil, nil, nil
 }
 
 func (s *service) Login(ctx context.Context, identity string, password string) (*datastruct.UserInformation, map[string]string, error) {
