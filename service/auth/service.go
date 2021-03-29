@@ -482,22 +482,39 @@ func (s *service) GetResetPasswordCode(ctx context.Context, identity string) (bo
 		return false, errors.New(util.ErrGenerateOTP)
 	}
 
-	mailData := &MailDataTemplate{
-		Username: user.Username,
-		// Code:     strings.ToUpper(util.GenerateRandomString(4)),
-		Code: fmt.Sprint(code),
-	}
+	// mailData := &MailDataTemplate{
+	// 	Username: user.Username,
+	// 	// Code:     strings.ToUpper(util.GenerateRandomString(4)),
+	// 	Code: fmt.Sprint(code),
+	// }
 	verificationData := &datastruct.VerificationData{
 		Email:     user.Email,
-		Code:      mailData.Code,
+		Code:      fmt.Sprint(code),
 		Type:      datastruct.VerificationDataType(PassReset),
 		ExpiresAt: time.Now().Add(time.Minute * time.Duration(30)),
 	}
 
-	_, err = sendEmailVerification(mailData, PassReset, user, s.configs)
-	if err != nil {
+	// _, err = sendEmailVerification(mailData, PassReset, user, s.configs)
+	// if err != nil {
+	// 	level.Error(s.logger).Log("err", err.Error())
+	// 	return false, errors.New(util.ErrEmailSend)
+	// }
+
+	// Send verification mail
+	from := "sandbox.repoerna@gmail.com"
+	to := []string{user.Email}
+	subject := "Email Verification for Bookite"
+	mailType := mailer.PassReset
+	mailData := &mailer.MailData{
+		Username: user.Username,
+		Code:     fmt.Sprint(code),
+	}
+
+	mailReq := s.mailer.NewMail(from, to, subject, mailType, mailData)
+	if err = s.mailer.SendMail(mailReq); err != nil {
 		level.Error(s.logger).Log("err", err.Error())
-		return false, errors.New(util.ErrEmailSend)
+		return false, errors.New("can't send verification email")
+
 	}
 
 	if err = s.repository.CreateVerificationData(ctx, verificationData); err != nil {
